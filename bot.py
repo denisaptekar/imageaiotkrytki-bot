@@ -19,7 +19,7 @@ PAYMENT_TOKEN = os.getenv("PAYMENT_TOKEN")
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ====================== БАЗА ДАННЫХ ======================
+# ====================== БАЗА ======================
 Base = declarative_base()
 engine = create_engine("sqlite:///bot.db")
 Session = sessionmaker(bind=engine)
@@ -37,16 +37,20 @@ Base.metadata.create_all(engine)
 fal_client = AsyncClient(key=FAL_KEY)
 
 async def generate_image(prompt: str):
-    result = await fal_client.subscribe(
-        "fal-ai/flux/schnell",
-        arguments={
-            "prompt": prompt,
-            "image_size": "landscape_16_9",
-            "num_inference_steps": 4,
-            "guidance_scale": 3.5
-        }
-    )
-    return result["images"][0]["url"]
+    try:
+        result = await fal_client.subscribe(
+            "fal-ai/flux/schnell",
+            arguments={
+                "prompt": prompt,
+                "image_size": "landscape_16_9",
+                "num_inference_steps": 4,
+                "guidance_scale": 3.5
+            }
+        )
+        return result["images"][0]["url"]
+    except Exception as e:
+        print(f"FAL ERROR: {e}")   # видно в логах Railway
+        raise e
 
 def improve_prompt(text: str):
     return f"Тёплая, красивая, эмоциональная открытка, реализм, мягкий свет, {text}, для 30+, очень душевно"
@@ -60,7 +64,7 @@ def main_keyboard():
         [InlineKeyboardButton(text="💎 Купить премиум 399 ₽/мес", callback_data="premium")]
     ])
 
-# ====================== СТАРТ С ГИФКОЙ ======================
+# ====================== СТАРТ ======================
 @dp.message(Command("start"))
 async def start(message: types.Message):
     gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"
@@ -75,46 +79,36 @@ async def start(message: types.Message):
         reply_markup=main_keyboard()
     )
 
-# ====================== ОБРАБОТЧИКИ КНОПОК ======================
+# ====================== КНОПКИ ======================
 @dp.callback_query(lambda c: c.data == "holiday")
 async def holiday_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply(
-        "Напишите, кого хотите поздравить и с каким праздником.\n\n"
-        "Пример:\n"
-        "• мужу на день рождения\n"
-        "• дочке на 8 марта\n"
-        "• маме на юбилей"
-    )
+    await callback.message.reply("Напишите, кого поздравляем и с каким праздником.\nПример: мужу на день рождения")
 
 @dp.callback_query(lambda c: c.data == "family")
 async def family_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply("Опишите, кого нарисовать (кто на фото, настроение и т.д.)")
+    await callback.message.reply("Опишите семейный портрет (кто на фото, настроение и т.д.)")
 
 @dp.callback_query(lambda c: c.data == "referral")
 async def referral_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply(
-        f"🔗 Ваша реферальная ссылка:\n"
-        f"https://t.me/ImageAiPostcards_bot?start=ref_{callback.from_user.id}\n\n"
-        f"Приведи друга — получишь +5 бесплатных генераций!"
-    )
+    await callback.message.reply(f"🔗 Ваша реферальная ссылка:\nhttps://t.me/ImageAiPostcards_bot?start=ref_{callback.from_user.id}\n\nПриведи друга — +5 генераций!")
 
 @dp.callback_query(lambda c: c.data == "premium")
 async def premium_handler(callback: types.CallbackQuery):
     await callback.answer()
     await bot.send_invoice(
         callback.from_user.id,
-        title="Премиум-подписка 1 месяц",
-        description="Неограниченное количество генераций + приоритет",
+        title="Премиум 1 месяц",
+        description="Неограниченное количество генераций",
         payload="premium_month",
         provider_token=PAYMENT_TOKEN,
         currency="RUB",
-        prices=[types.LabeledPrice(label="Премиум 1 месяц", amount=39900)]
+        prices=[types.LabeledPrice(label="Премиум", amount=39900)]
     )
 
-# ====================== ГЕНЕРАЦИЯ КАРТИНОК ======================
+# ====================== ГЕНЕРАЦИЯ ======================
 @dp.message()
 async def handle_text(message: types.Message):
     session = Session()
@@ -124,14 +118,10 @@ async def handle_text(message: types.Message):
         session.add(user)
         session.commit()
 
-    if not user.is_premium:
-        if (datetime.utcnow() - user.last_reset) > timedelta(days=1):
-            user.daily_count = 0
-            user.last_reset = datetime.utcnow()
-        if user.daily_count >= 10:
-            await message.answer("⏳ Сегодня лимит бесплатных генераций (10 шт) исчерпан.\nКупите премиум!")
-            session.close()
-            return
+    if not user.is_premium and user.daily_count >= 10:
+        await message.answer("⏳ Лимит 10 бесплатных картинок на сегодня исчерпан.")
+        session.close()
+        return
 
     try:
         await message.answer("🖼 Генерирую картинку... (10–15 секунд)")
@@ -140,8 +130,10 @@ async def handle_text(message: types.Message):
         await message.answer_photo(url, caption="Готово! ✨")
         user.daily_count += 1
         session.commit()
-    except Exception:
-        await message.answer("⚠️ Ошибка генерации. Попробуйте ещё раз.")
+    except Exception as e:
+        error_text = str(e)
+        print(f"ГЕНЕРАЦИЯ ОШИБКА: {error_text}")   # видно в Railway Logs
+        await message.answer(f"⚠️ Ошибка генерации:\n{error_text[:300]}")
     finally:
         session.close()
 
