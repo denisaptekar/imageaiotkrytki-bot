@@ -37,20 +37,16 @@ Base.metadata.create_all(engine)
 fal_client = AsyncClient(key=FAL_KEY)
 
 async def generate_image(prompt: str):
-    try:
-        result = await fal_client.subscribe(
-            "fal-ai/flux/schnell",
-            arguments={
-                "prompt": prompt,
-                "image_size": "landscape_16_9",
-                "num_inference_steps": 4,
-                "guidance_scale": 3.5
-            }
-        )
-        return result["images"][0]["url"]
-    except Exception as e:
-        print(f"FAL ERROR: {e}")   # видно в логах Railway
-        raise e
+    result = await fal_client.subscribe(
+        "fal-ai/flux/schnell",
+        arguments={
+            "prompt": prompt,
+            "image_size": "landscape_16_9",
+            "num_inference_steps": 4,
+            "guidance_scale": 3.5
+        }
+    )
+    return result["images"][0]["url"]
 
 def improve_prompt(text: str):
     return f"Тёплая, красивая, эмоциональная открытка, реализм, мягкий свет, {text}, для 30+, очень душевно"
@@ -68,14 +64,9 @@ def main_keyboard():
 @dp.message(Command("start"))
 async def start(message: types.Message):
     gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"
-
     await message.answer_animation(
         animation=gif_url,
-        caption="Привет 👋\n\n"
-                "Я — ImageAi ОткрыткиBot ✨\n"
-                "Генерирую тёплые открытки и фото для ваших родных и близких с помощью Flux AI.\n"
-                "Бесплатно: 10 картинок в день\n\n"
-                "Выбери шаблон или напиши свой текст:",
+        caption="Привет 👋\n\nЯ — ImageAi ОткрыткиBot ✨\nГенерирую тёплые открытки с помощью Flux AI.\nБесплатно: 10 картинок в день\n\nВыбери шаблон или напиши свой текст:",
         reply_markup=main_keyboard()
     )
 
@@ -108,7 +99,7 @@ async def premium_handler(callback: types.CallbackQuery):
         prices=[types.LabeledPrice(label="Премиум", amount=39900)]
     )
 
-# ====================== ГЕНЕРАЦИЯ ======================
+# ====================== ГЕНЕРАЦИЯ (с подробной ошибкой) ======================
 @dp.message()
 async def handle_text(message: types.Message):
     session = Session()
@@ -119,7 +110,7 @@ async def handle_text(message: types.Message):
         session.commit()
 
     if not user.is_premium and user.daily_count >= 10:
-        await message.answer("⏳ Лимит 10 бесплатных картинок на сегодня исчерпан.")
+        await message.answer("⏳ Лимит 10 бесплатных картинок исчерпан.")
         session.close()
         return
 
@@ -132,8 +123,8 @@ async def handle_text(message: types.Message):
         session.commit()
     except Exception as e:
         error_text = str(e)
-        print(f"ГЕНЕРАЦИЯ ОШИБКА: {error_text}")   # видно в Railway Logs
-        await message.answer(f"⚠️ Ошибка генерации:\n{error_text[:300]}")
+        print(f"ГЕНЕРАЦИЯ ОШИБКА: {error_text}")   # для логов
+        await message.answer(f"⚠️ Ошибка генерации:\n{error_text[:400]}")  # показываем пользователю
     finally:
         session.close()
 
