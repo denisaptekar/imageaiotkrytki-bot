@@ -99,7 +99,7 @@ async def premium_handler(callback: types.CallbackQuery):
         prices=[types.LabeledPrice(label="Премиум", amount=39900)]
     )
 
-# ====================== ГЕНЕРАЦИЯ (с подробной ошибкой) ======================
+# ====================== ГЕНЕРАЦИЯ (ПОКАЗЫВАЕМ РЕАЛЬНУЮ ОШИБКУ) ======================
 @dp.message()
 async def handle_text(message: types.Message):
     session = Session()
@@ -123,8 +123,8 @@ async def handle_text(message: types.Message):
         session.commit()
     except Exception as e:
         error_text = str(e)
-        print(f"ГЕНЕРАЦИЯ ОШИБКА: {error_text}")   # для логов
-        await message.answer(f"⚠️ Ошибка генерации:\n{error_text[:400]}")  # показываем пользователю
+        print(f"ГЕНЕРАЦИЯ ОШИБКА: {error_text}")
+        await message.answer(f"⚠️ Ошибка генерации:\n{error_text[:500]}")
     finally:
         session.close()
 
