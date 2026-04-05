@@ -48,17 +48,28 @@ async def generate_image(prompt: str):
     )
     return result["images"][0]["url"]
 
-# ====================== ПРОМПТ (теперь использует твой текст напрямую) ======================
+# ====================== УЛУЧШЕННЫЙ ПРОМПТ (теперь максимально точно следует твоему запросу) ======================
 def improve_prompt(user_text: str) -> str:
-    # Минимальное улучшение качества, но основной смысл — твой запрос
-    return f"{user_text}, красивая открытка, реалистичный стиль, высокое качество, детализация, мягкий свет, эмоционально"
+    text = user_text.lower()
+    
+    # Специальные правила для частых запросов
+    if "8 марта" in text or "восьмое марта" in text or "женский день" in text:
+        return f"{user_text}, нежная весенняя открытка на 8 марта, цветы, тюльпаны, мимоза, розовые тона, солнце, для дочери, очень красиво и трогательно, реализм, высокое качество"
+    
+    elif "дочке" in text or "дочь" in text or "дочери" in text:
+        return f"{user_text}, нежная открытка для дочери, девочка, ребёнок, весенние цветы, тёплый свет, реализм, высокое качество, очень душевно"
+    
+    elif "день рождения" in text or "др" in text or "юбилей" in text:
+        return f"{user_text}, праздничная открытка на день рождения, шары, торт, цветы, улыбки, тёплый свет, реализм, высокое качество"
+    
+    # Если ничего специального — просто добавляем качество к твоему тексту
+    return f"{user_text}, красивая открытка, реалистичный стиль, высокая детализация, мягкий тёплый свет, эмоционально, высокое качество"
 
 # ====================== КЛАВИАТУРА ======================
 def main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🎉 Открытка на праздники", callback_data="holiday")],
         [InlineKeyboardButton(text="❤️ Семейный портрет", callback_data="family")],
-        [InlineKeyboardButton(text="✨ Улучшить мой промпт", callback_data="improve")],
         [InlineKeyboardButton(text="👥 Реферальная программа", callback_data="referral")],
         [InlineKeyboardButton(text="💎 Купить премиум 399 ₽/мес", callback_data="premium")]
     ])
@@ -66,10 +77,10 @@ def main_keyboard():
 # ====================== СТАРТ ======================
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"   # потом перезальём лучше
+    gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"
     await message.answer_animation(
         animation=gif_url,
-        caption="Привет 👋\n\nЯ — ImageAi ОткрыткиBot ✨\nГенерирую картинки по твоему тексту.\nПросто напиши, что хочешь увидеть!",
+        caption="Привет 👋\n\nЯ — ImageAi ОткрыткиBot ✨\nПиши свой текст — я сгенерирую по нему картинку!",
         reply_markup=main_keyboard()
     )
 
@@ -77,22 +88,17 @@ async def start(message: types.Message):
 @dp.callback_query(lambda c: c.data == "holiday")
 async def holiday_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply("Напиши, кого поздравляем и с каким праздником.")
+    await callback.message.reply("Напишите, кого поздравляем и с каким праздником.")
 
 @dp.callback_query(lambda c: c.data == "family")
 async def family_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply("Опиши, кого нарисовать (кто на фото, настроение и т.д.)")
-
-@dp.callback_query(lambda c: c.data == "improve")
-async def improve_handler(callback: types.CallbackQuery):
-    await callback.answer()
-    await callback.message.reply("Отправь текст, который хочешь улучшить перед генерацией.")
+    await callback.message.reply("Опишите семейный портрет.")
 
 @dp.callback_query(lambda c: c.data == "referral")
 async def referral_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply(f"🔗 Твоя реферальная ссылка:\nhttps://t.me/ImageAiPostcards_bot?start=ref_{callback.from_user.id}\n\nПриведи друга — +5 генераций!")
+    await callback.message.reply(f"🔗 Ваша реферальная ссылка:\nhttps://t.me/ImageAiPostcards_bot?start=ref_{callback.from_user.id}")
 
 @dp.callback_query(lambda c: c.data == "premium")
 async def premium_handler(callback: types.CallbackQuery):
@@ -123,10 +129,10 @@ async def handle_text(message: types.Message):
         return
 
     try:
-        await message.answer("🖼 Генерирую по твоему запросу... (10–15 сек)")
-        prompt = improve_prompt(message.text)   # теперь почти твой текст + минимальное улучшение качества
+        await message.answer("🖼 Генерирую по твоему запросу...")
+        prompt = improve_prompt(message.text)
         url = await generate_image(prompt)
-        await message.answer_photo(url, caption=f"Готово по запросу:\n{message.text}")
+        await message.answer_photo(url, caption=f"Готово по запросу:\n«{message.text}»")
         user.daily_count += 1
         session.commit()
     except Exception as e:
