@@ -48,22 +48,26 @@ async def generate_image(prompt: str):
     )
     return result["images"][0]["url"]
 
-# ====================== УЛУЧШЕННЫЙ ПРОМПТ (теперь максимально точно следует твоему запросу) ======================
+# ====================== УЛУЧШЕННЫЙ ПРОМПТ ДЛЯ ОТКРЫТОК ======================
 def improve_prompt(user_text: str) -> str:
     text = user_text.lower()
     
-    # Специальные правила для частых запросов
-    if "8 марта" in text or "восьмое марта" in text or "женский день" in text:
-        return f"{user_text}, нежная весенняя открытка на 8 марта, цветы, тюльпаны, мимоза, розовые тона, солнце, для дочери, очень красиво и трогательно, реализм, высокое качество"
+    # Если пользователь хочет именно открытку
+    if "открытка" in text:
+        if "8 марта" in text or "восьмое марта" in text or "женский день" in text:
+            return f"Поздравительная открытка с большим красивым текстом 'С 8 Марта!', розовые цветы, тюльпаны, мимоза, бант, блёстки, нежный розовый фон, праздничный дизайн, высокое качество, очень красиво и трогательно"
+        
+        elif "дочке" in text or "дочь" in text or "дочери" in text:
+            return f"Поздравительная открытка для дочери с большим текстом, нежные розовые цветы, бант, блёстки, праздничный дизайн, высокое качество, очень душевно"
+        
+        elif "день рождения" in text or "др" in text or "юбилей" in text:
+            return f"Праздничная открытка на день рождения с большим текстом, шары, цветы, бант, блёстки, торт, праздничный дизайн, высокое качество"
+        
+        else:
+            return f"Красивая поздравительная открытка с большим текстом поздравления, цветы, бант, блёстки, праздничный дизайн, нежный фон, высокое качество, {user_text}"
     
-    elif "дочке" in text or "дочь" in text or "дочери" in text:
-        return f"{user_text}, нежная открытка для дочери, девочка, ребёнок, весенние цветы, тёплый свет, реализм, высокое качество, очень душевно"
-    
-    elif "день рождения" in text or "др" in text or "юбилей" in text:
-        return f"{user_text}, праздничная открытка на день рождения, шары, торт, цветы, улыбки, тёплый свет, реализм, высокое качество"
-    
-    # Если ничего специального — просто добавляем качество к твоему тексту
-    return f"{user_text}, красивая открытка, реалистичный стиль, высокая детализация, мягкий тёплый свет, эмоционально, высокое качество"
+    # Если просто текст без слова "открытка"
+    return f"{user_text}, красивая картинка, реалистичный стиль, высокая детализация, мягкий свет, высокое качество"
 
 # ====================== КЛАВИАТУРА ======================
 def main_keyboard():
@@ -80,7 +84,7 @@ async def start(message: types.Message):
     gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"
     await message.answer_animation(
         animation=gif_url,
-        caption="Привет 👋\n\nЯ — ImageAi ОткрыткиBot ✨\nПиши свой текст — я сгенерирую по нему картинку!",
+        caption="Привет 👋\n\nПиши свой запрос — я сделаю **настоящую поздравительную открытку** с текстом!",
         reply_markup=main_keyboard()
     )
 
@@ -88,12 +92,12 @@ async def start(message: types.Message):
 @dp.callback_query(lambda c: c.data == "holiday")
 async def holiday_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply("Напишите, кого поздравляем и с каким праздником.")
+    await callback.message.reply("Напишите, кого поздравляем и с каким праздником (например: дочке на 8 марта)")
 
 @dp.callback_query(lambda c: c.data == "family")
 async def family_handler(callback: types.CallbackQuery):
     await callback.answer()
-    await callback.message.reply("Опишите семейный портрет.")
+    await callback.message.reply("Опишите семейный портрет")
 
 @dp.callback_query(lambda c: c.data == "referral")
 async def referral_handler(callback: types.CallbackQuery):
@@ -129,7 +133,7 @@ async def handle_text(message: types.Message):
         return
 
     try:
-        await message.answer("🖼 Генерирую по твоему запросу...")
+        await message.answer("🖼 Генерирую открытку...")
         prompt = improve_prompt(message.text)
         url = await generate_image(prompt)
         await message.answer_photo(url, caption=f"Готово по запросу:\n«{message.text}»")
