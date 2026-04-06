@@ -38,22 +38,33 @@ fal_client = AsyncClient(key=FAL_KEY)
 
 async def generate_image(prompt: str):
     result = await fal_client.subscribe(
-        "fal-ai/flux-pro",   # ← Переключили на Pro
+        "fal-ai/flux-pro",
         arguments={
             "prompt": prompt,
-            "image_size": "square",      # лучше для открыток
+            "image_size": "square",
             "num_inference_steps": 8,
             "guidance_scale": 4
         }
     )
     return result["images"][0]["url"]
 
-# ====================== ПРОМПТ ДЛЯ ОТКРЫТОК ======================
+# ====================== СИЛЬНЫЙ ПРОМПТ ДЛЯ ОТКРЫТОК ======================
 def improve_prompt(user_text: str) -> str:
     text = user_text.lower()
-    if "открытка" in text:
-        return f"{user_text}, поздравительная открытка с большим красивым текстом, цветы, бант, блёстки, праздничный дизайн, нежный фон, высокое качество, ultra sharp, masterpiece"
-    return f"{user_text}, красивая открытка, высокое качество, ultra sharp, masterpiece"
+    
+    base = "поздравительная открытка, милый стиль, большой красивый текст поздравления, цветы, банты, блёстки, праздничный дизайн, нежный фон, высокое качество, ultra sharp, masterpiece, детализация"
+
+    if "8 марта" in text or "восьмое марта" in text or "женский день" in text:
+        return f"{base}, С 8 Марта!, розовые цветы, тюльпаны, мимоза, милые котята или девочка, бант, подарок, очень красиво и трогательно, {user_text}"
+    
+    elif "дочке" in text or "дочь" in text or "дочери" in text:
+        return f"{base}, милый котёнок или девочка, нежные цветы, бант, подарок, большой текст поздравления, очень душевно, {user_text}"
+    
+    elif "день рождения" in text or "др" in text or "юбилей" in text:
+        return f"{base}, шары, торт, цветы, бант, подарок, большой текст поздравления, празднично, {user_text}"
+    
+    else:
+        return f"{base}, большой красивый текст, цветы, бант, блёстки, милый стиль, {user_text}"
 
 # ====================== КЛАВИАТУРА ======================
 def main_keyboard():
@@ -64,7 +75,7 @@ def main_keyboard():
         [InlineKeyboardButton(text="💎 Купить премиум 599 ₽/мес", callback_data="premium")]
     ])
 
-# ====================== НОВОЕ ПРИВЕТСТВИЕ ======================
+# ====================== СТАРТ ======================
 @dp.message(Command("start"))
 async def start(message: types.Message):
     gif_url = "https://s1.ezgif.com/tmp/ezgif-1c78684ada49012a.gif"
@@ -72,12 +83,12 @@ async def start(message: types.Message):
         animation=gif_url,
         caption="Привет 👋\n\n"
                 "Я — ImageAi ✨\n"
-                "Генерирую открытки для ваших родных и близких с помощью Flux AI.\n"
+                "Генерирую красивые поздравительные открытки с помощью Flux Pro.\n"
                 "Бесплатно: 5 картинок в день\n\n"
                 "Оформите премиум по скидке за <s>899</s> 599₽ в месяц\n\n"
                 "Выбери шаблон или напиши свой текст:",
         reply_markup=main_keyboard(),
-        parse_mode="HTML"   # нужно для зачёркивания
+        parse_mode="HTML"
     )
 
 # ====================== КНОПКИ ======================
@@ -102,11 +113,11 @@ async def premium_handler(callback: types.CallbackQuery):
     await bot.send_invoice(
         callback.from_user.id,
         title="Премиум 1 месяц",
-        description="Неограниченное количество генераций + Flux Pro",
+        description="Неограниченное количество генераций на Flux Pro",
         payload="premium_month",
         provider_token=PAYMENT_TOKEN,
         currency="RUB",
-        prices=[types.LabeledPrice(label="Премиум 1 месяц", amount=59900)]   # 599 рублей
+        prices=[types.LabeledPrice(label="Премиум 1 месяц", amount=59900)]
     )
 
 # ====================== ГЕНЕРАЦИЯ ======================
@@ -119,13 +130,13 @@ async def handle_text(message: types.Message):
         session.add(user)
         session.commit()
 
-    if not user.is_premium and user.daily_count >= 5:   # ← лимит 5
+    if not user.is_premium and user.daily_count >= 5:
         await message.answer("⏳ Лимит 5 бесплатных картинок исчерпан.")
         session.close()
         return
 
     try:
-        await message.answer("🖼 Генерирую открытку на Flux Pro...")
+        await message.answer("🖼 Генерирую красивую открытку...")
         prompt = improve_prompt(message.text)
         url = await generate_image(prompt)
         await message.answer_photo(url, caption=f"Готово по запросу:\n«{message.text}»")
